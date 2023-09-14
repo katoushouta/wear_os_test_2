@@ -4,7 +4,9 @@
  * changes to the libraries and their usages.
  */
 
-// 参考 https://developer.android.com/training/wearables/health-services/active?hl=ja
+// 参考
+// 心拍数取得 -> https://developer.android.com/training/wearables/health-services/active?hl=ja
+// データ送信 -> https://developer.android.com/training/wearables/data/data-items?hl=ja
 
 package com.example.wear_os_test_2.presentation
 
