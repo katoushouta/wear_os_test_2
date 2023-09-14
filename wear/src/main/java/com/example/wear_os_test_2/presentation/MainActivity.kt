@@ -7,6 +7,7 @@
 package com.example.wear_os_test_2.presentation
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -20,16 +21,34 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.health.services.client.HealthServices
+import androidx.health.services.client.data.DataType
+import androidx.health.services.client.getCapabilities
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.lifecycleScope
+import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.example.wear_os_test_2.R
 import com.example.wear_os_test_2.presentation.theme.Wear_os_test_2Theme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val healthClient = HealthServices.getClient(this)
+        val measureClient = healthClient.measureClient
+        var supportsHeartRate = false
+        lifecycleScope.launch {
+            val capabilities = measureClient.getCapabilities()
+            supportsHeartRate = DataType.HEART_RATE_BPM in capabilities.supportedDataTypesMeasure
+            Log.d("DEBUD", supportsHeartRate.toString())
+        }
+
         setContent {
-            WearApp("Android")
+            WearApp(supportsHeartRate.toString())
         }
     }
 }
@@ -47,7 +66,7 @@ fun WearApp(greetingName: String) {
                 .background(MaterialTheme.colors.background),
             verticalArrangement = Arrangement.Center
         ) {
-            Greeting(greetingName = greetingName)
+            Greeting(greetingName = "android")
         }
     }
 }
