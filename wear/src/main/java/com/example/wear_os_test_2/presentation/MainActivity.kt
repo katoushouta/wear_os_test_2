@@ -4,10 +4,13 @@
  * changes to the libraries and their usages.
  */
 
+// 参考 https://developer.android.com/training/wearables/health-services/active?hl=ja
+
 package com.example.wear_os_test_2.presentation
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -44,6 +47,9 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.example.wear_os_test_2.R
 import com.example.wear_os_test_2.presentation.theme.Wear_os_test_2Theme
+import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.trySendBlocking
@@ -52,11 +58,32 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.time.LocalDateTime
 
+private const val TO_PHONE_PATH = "/heart_rate_bpm"
+private const val VITAL_KEY = "com.example.wear_test_2.vital"
 class MainActivity : ComponentActivity() {
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     lateinit var healthClient: HealthServicesClient
     lateinit var measureClient: MeasureClient
+
+    lateinit var dataClient: DataClient
+
+    private fun sendHeartRate(bpm: Double) {
+        val putDataReq = PutDataMapRequest.create(TO_PHONE_PATH).run {
+            dataMap.putInt(VITAL_KEY, bpm.toInt())
+            asPutDataRequest()
+        }
+        val putDataTask = dataClient.putDataItem(putDataReq)
+
+        putDataTask.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                Toast.makeText(applicationContext, "同期しました : $bpm", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(applicationContext, "同期に失敗しました", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     @ExperimentalCoroutinesApi
     fun heartRateMeasureFlow() = callbackFlow {
         val callback = object : MeasureCallback {
@@ -70,8 +97,12 @@ class MainActivity : ComponentActivity() {
 
             override fun onDataReceived(data: DataPointContainer) {
                 val heartRateBpm = data.getData(DataType.HEART_RATE_BPM)
-                Log.d("DEBUG", "BPM: ${heartRateBpm.last().value}")
-                trySendBlocking(heartRateBpm)
+                val bpm = heartRateBpm.last().value
+                val current = LocalDateTime.now()
+                if (current.second % 5 == 0) {
+                    Log.d("DEBUG", "BPM: $bpm")
+                    trySendBlocking(bpm)
+                }
             }
         }
 
@@ -93,6 +124,8 @@ class MainActivity : ComponentActivity() {
         healthClient = HealthServices.getClient(this /*context*/)
         measureClient  = healthClient.measureClient
 
+        dataClient = Wearable.getDataClient(applicationContext)
+
         permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { result ->
             Log.d("FULL", "when")
@@ -107,11 +140,11 @@ class MainActivity : ComponentActivity() {
                         heartRateMeasureFlow().collect {
                             when (it) {
                                 is Availability -> {
-                                    Log.d("DEBUG", "Availability changed: ${it}")
+                                    Log.d("DEBUG", "Availability changed: $it")
                                 }
-                                is List<*> -> {
-                                    val bpm = it.last()
-                                    Log.d("DEBUG", "Data update: $bpm")
+                                is Double -> {
+                                    sendHeartRate(it)
+                                    Log.d("DEBUG", "Data update: $it")
                                 }
                             }
                         }
