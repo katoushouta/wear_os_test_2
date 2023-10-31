@@ -49,6 +49,13 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.example.wear_os_test_2.R
 import com.example.wear_os_test_2.presentation.theme.Wear_os_test_2Theme
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInOptionsExtension
+import com.google.android.gms.fitness.Fitness
+import com.google.android.gms.fitness.FitnessOptions
+import com.google.android.gms.fitness.data.DataSource
+import com.google.android.gms.fitness.request.DataSourcesRequest
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
@@ -167,9 +174,51 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+    }
+
     override fun onStart() {
         super.onStart()
         permissionLauncher.launch(android.Manifest.permission.BODY_SENSORS)
+
+        val fitnessOptions = FitnessOptions.builder()
+            .addDataType(com.google.android.gms.fitness.data.DataType.TYPE_STEP_COUNT_DELTA).build()
+        if (!GoogleSignIn.hasPermissions(
+                GoogleSignIn.getLastSignedInAccount(this),
+                fitnessOptions
+            )
+        ) {
+            Log.d("DEBUG", "permissions false")
+            GoogleSignIn.requestPermissions(
+                this,
+                1,
+                GoogleSignIn.getLastSignedInAccount(this),
+                fitnessOptions
+            )
+        }
+        GoogleSignIn.getLastSignedInAccount(this)?.let {
+            Log.d("DEBUG", "LET")
+            Fitness.getSensorsClient(this, it)
+                .findDataSources(
+                    DataSourcesRequest.Builder()
+                        .setDataTypes(com.google.android.gms.fitness.data.DataType.TYPE_STEP_COUNT_DELTA)
+                        .setDataSourceTypes(DataSource.TYPE_RAW)
+                        .build())
+                .addOnSuccessListener { dataSources ->
+                    dataSources.forEach {
+                        Log.i("DEBUG", "Data source found: ${it.streamIdentifier}")
+                        Log.i("DEBUG", "Data Source type: ${it.dataType.name}")
+
+                        if (it.dataType == com.google.android.gms.fitness.data.DataType.TYPE_STEP_COUNT_DELTA) {
+                            Log.i("DEBUG", "Data source for STEP_COUNT_DELTA found!")
+                        }
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("DEBUG", "Find data sources request failed", e)
+                }
+        }
     }
 }
 
